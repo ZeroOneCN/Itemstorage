@@ -88,8 +88,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-  addItem: (item: Omit<Item, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  updateItem: (item: Item) => Promise<void>;
+  addItem: (item: Omit<Item, 'id' | 'created_at' | 'updated_at'>) => Promise<{ success: boolean; error?: string }>;
+  updateItem: (item: Item) => Promise<{ success: boolean; error?: string }>;
   deleteItem: (id: string) => Promise<void>;
   addRoom: (room: Omit<Room, 'id' | 'created_at'>) => Promise<void>;
   updateRoom: (room: Room) => Promise<void>;
@@ -195,8 +195,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   }, [user, loadData]);
 
   // 物品操作
-  const addItem = async (itemData: Omit<Item, 'id' | 'created_at' | 'updated_at'>) => {
-    if (!user) return;
+  const addItem = async (itemData: Omit<Item, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: '未登录' };
 
     const { data, error } = await supabase
       .from('items')
@@ -214,7 +214,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       .select()
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error('添加物品失败:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (data) {
       const newItem: Item = {
         id: data.id,
         name: data.name,
@@ -230,10 +235,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       };
       dispatch({ type: 'ADD_ITEM', payload: newItem });
     }
+
+    return { success: true };
   };
 
-  const updateItem = async (item: Item) => {
-    if (!user) return;
+  const updateItem = async (item: Item): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: '未登录' };
 
     const { error } = await supabase
       .from('items')
@@ -249,9 +256,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       })
       .eq('id', item.id);
 
-    if (!error) {
-      dispatch({ type: 'UPDATE_ITEM', payload: { ...item, updated_at: new Date().toISOString() } });
+    if (error) {
+      console.error('更新物品失败:', error);
+      return { success: false, error: error.message };
     }
+
+    dispatch({ type: 'UPDATE_ITEM', payload: { ...item, updated_at: new Date().toISOString() } });
+    return { success: true };
   };
 
   const deleteItem = async (id: string) => {

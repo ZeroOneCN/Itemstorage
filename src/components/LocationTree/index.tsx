@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, IconButton } from '@mui/material';
+import { Typography, Box, IconButton, Radio } from '@mui/material';
 import { TreeView, TreeItem } from '@mui/lab';
 import { ChevronRight, Home, LocationOn, Edit, Delete, FolderOpen } from '@mui/icons-material';
 import type { Room, Location } from '../../types';
@@ -41,32 +41,49 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
     return locations.filter(location => location.parent_id === parentId);
   };
 
+  const handleLocationClick = (e: React.MouseEvent, locationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect(locationId);
+  };
+
   const renderLocationNode = (location: Location) => {
     const childLocations = getChildLocations(location.id);
+    const isSelected = selectedLocationId === location.id;
 
     return (
       <TreeItem
         key={location.id}
-        nodeId={location.id}
+        nodeId={`loc-${location.id}`}
         label={
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              cursor: 'pointer',
-              backgroundColor: selectedLocationId === location.id ? '#E0D6C2' : 'transparent',
               padding: '8px 12px',
               borderRadius: '8px',
               width: '100%',
+              backgroundColor: isSelected ? '#E0D6C2' : 'transparent',
+              cursor: 'pointer',
               transition: 'all 0.2s ease',
               '&:hover': {
-                backgroundColor: selectedLocationId === location.id ? '#E0D6C2' : '#F0E6D2'
+                backgroundColor: isSelected ? '#E0D6C2' : '#F0E6D2'
               }
             }}
-            onClick={() => onSelect(location.id)}
+            onClick={(e) => handleLocationClick(e, location.id)}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <Radio
+                checked={isSelected}
+                size="small"
+                sx={{
+                  padding: '2px',
+                  marginRight: 1,
+                  '&.Mui-checked': { color: '#4A6741' }
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
               <LocationOn fontSize="small" sx={{ marginRight: '8px', color: '#8B7355' }} />
               <Typography sx={{ color: '#8B7355' }}>{location.name}</Typography>
             </Box>
@@ -101,7 +118,7 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
           </Box>
         }
       >
-        {childLocations.map(childLocation => renderLocationNode(childLocation))}
+        {childLocations.length > 0 && childLocations.map(childLocation => renderLocationNode(childLocation))}
       </TreeItem>
     );
   };
@@ -163,7 +180,7 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
           return (
             <TreeItem
               key={room.id}
-              nodeId={room.id}
+              nodeId={`room-${room.id}`}
               label={
                 <Box
                   sx={{

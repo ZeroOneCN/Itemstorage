@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -10,7 +10,8 @@ import {
   InputLabel,
   Chip,
   Paper,
-  Autocomplete
+  Autocomplete,
+  CircularProgress
 } from '@mui/material';
 import { Save, Close } from '@mui/icons-material';
 import { Layout } from '../components/Layout';
@@ -48,12 +49,17 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
   const [mainPhoto, setMainPhoto] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // 从现有物品中提取所有类别
   const existingCategories = Array.from(new Set(items.map(item => item.category).filter(Boolean)));
 
+  // 标记是否已初始化，避免 items 变化时重置表单
+  const initializedRef = useRef(false);
+
   useEffect(() => {
-    if (itemId) {
+    // 只在初次加载或有 itemId 变化时初始化
+    if (itemId && !initializedRef.current) {
       const item = items.find(item => item.id === itemId);
       if (item) {
         setName(item.name);
@@ -61,12 +67,19 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
         setCategory(item.category);
         setLocationId(item.location_id);
         setSuitcaseId(item.suitcase_id);
-        setPhotos(item.photos);
+        setPhotos([...item.photos]); // 创建新数组避免引用问题
         setMainPhoto(item.main_photo);
-        setTags(item.tags);
+        setTags([...item.tags]);
+        initializedRef.current = true;
       }
     }
-  }, [itemId, items]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
+
+  // 当 itemId 变化时重置初始化标记
+  useEffect(() => {
+    initializedRef.current = false;
+  }, [itemId]);
 
   const handlePhotosChange = (newPhotos: string[], newMainPhoto: string | null) => {
     setPhotos(newPhotos);
@@ -85,16 +98,20 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
   };
 
   const handleSave = async () => {
+    if (saving) return; // 防止重复点击
+    
     if (!name.trim()) {
       alert('请输入物品名称');
       return;
     }
 
+    setSaving(true);
+
     try {
       if (itemId) {
         const item = items.find(item => item.id === itemId);
         if (item) {
-          await updateItem({
+          const result = await updateItem({
             ...item,
             name,
             description,
@@ -105,9 +122,14 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
             main_photo: mainPhoto,
             tags,
           });
+          
+          if (!result.success) {
+            alert('保存失败：' + (result.error || '未知错误'));
+            return;
+          }
         }
       } else {
-        await addItem({
+        const result = await addItem({
           name,
           description,
           category,
@@ -117,12 +139,19 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
           main_photo: mainPhoto,
           tags,
         });
+        
+        if (!result.success) {
+          alert('保存失败：' + (result.error || '未知错误'));
+          return;
+        }
       }
       
       onSave();
     } catch (error) {
       console.error('保存物品失败:', error);
       alert('保存失败，请重试');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -148,16 +177,18 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
             </Button>
             <Button
               variant="contained"
-              startIcon={<Save />}
+              startIcon={saving ? null : <Save />}
               onClick={handleSave}
+              disabled={saving}
               sx={{
                 backgroundColor: '#4A6741',
                 '&:hover': { backgroundColor: '#3A5235' },
                 borderRadius: 2,
-                '&:focus': { outline: 'none' }
+                '&:focus': { outline: 'none' },
+                '&:disabled': { backgroundColor: '#A08060' }
               }}
             >
-              保存
+              {saving ? <CircularProgress size={24} color="inherit" /> : '保存'}
             </Button>
           </Box>
         }
