@@ -26,7 +26,6 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
   const [expanded, setExpanded] = useState<string[]>(rooms.map(r => r.id));
 
   useEffect(() => {
-    // 当房间数据变化时，自动展开所有房间
     setExpanded(rooms.map(r => r.id));
   }, [rooms]);
 
@@ -110,9 +109,9 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
   // 空状态
   if (rooms.length === 0) {
     return (
-      <Box sx={{ 
-        textAlign: 'center', 
-        py: 4, 
+      <Box sx={{
+        textAlign: 'center',
+        py: 4,
         color: '#8B7355',
         backgroundColor: '#F9F6F0',
         borderRadius: 2
@@ -129,12 +128,17 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
   }
 
   return (
-    <Box sx={{ 
-      border: '1px solid #E0D6C2', 
-      borderRadius: 2, 
+    <Box sx={{
+      border: '1px solid #E0D6C2',
+      borderRadius: 2,
       p: 1,
       backgroundColor: '#F9F6F0'
     }}>
+      {/* 提示信息 */}
+      <Typography variant="body2" sx={{ color: '#A08060', px: 1, py: 1, mb: 1 }}>
+        点击选择存放位置
+      </Typography>
+
       <TreeView
         aria-label="location tree"
         defaultExpandIcon={<ChevronRight sx={{ color: '#8B7355' }} />}
@@ -155,7 +159,7 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
       >
         {rooms.map(room => {
           const roomLocations = getLocationsByRoomId(room.id).filter(location => location.parent_id === null);
-          
+
           return (
             <TreeItem
               key={room.id}
@@ -165,17 +169,10 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: selectedLocationId === room.id ? '#E0D6C2' : 'transparent',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    width: '100%',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: selectedLocationId === room.id ? '#E0D6C2' : '#F0E6D2'
-                    }
+                    width: '100%'
                   }}
-                  onClick={() => onSelect(room.id)}
                 >
                   <Home fontSize="small" sx={{ marginRight: '8px', color: '#4A6741' }} />
                   <Typography sx={{ color: '#8B7355', fontWeight: 500 }}>{room.name}</Typography>
@@ -192,13 +189,28 @@ export const LocationTree: React.FC<LocationTreeProps> = ({
                       暂无位置
                     </Typography>
                   }
-                  disabled
                 />
               )}
             </TreeItem>
           );
         })}
       </TreeView>
+
+      {/* 当前选择的位置 */}
+      {selectedLocationId && (
+        <Box sx={{ mt: 2, p: 1.5, backgroundColor: '#E0D6C2', borderRadius: 1 }}>
+          <Typography variant="body2" sx={{ color: '#8B7355' }}>
+            已选择：{locations.find(l => l.id === selectedLocationId)?.name || '未知位置'}
+          </Typography>
+          <Typography 
+            variant="caption" 
+            sx={{ color: '#4A6741', cursor: 'pointer', display: 'block', mt: 0.5 }}
+            onClick={() => onSelect(null)}
+          >
+            点击清除选择
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

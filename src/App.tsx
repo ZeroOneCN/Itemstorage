@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { LoginPage } from './pages/LoginPage';
@@ -12,23 +12,141 @@ import { SuitcasePage } from './pages/SuitcasePage';
 import { LocationManagementPage } from './pages/LocationManagementPage';
 import { CircularProgress, Box } from '@mui/material';
 
-type Page = 'home' | 'addItem' | 'editItem' | 'itemDetail' | 'search' | 'suitcase' | 'locationManagement';
-
 // 登录页面包装器
 const LoginPageWrapper: React.FC = () => {
   const navigate = useNavigate();
   return <LoginPage onSuccess={() => navigate('/')} />;
 };
 
+// 添加物品页面包装器
+const AddItemPageWrapper: React.FC<{
+  onBack: () => void;
+  onTabChange: (event: React.SyntheticEvent, value: number) => void;
+  currentTab: number;
+}> = ({ onBack, onTabChange, currentTab }) => {
+  const [searchParams] = useSearchParams();
+  const itemId = searchParams.get('id') || undefined;
+  return (
+    <AddItemPage
+      itemId={itemId}
+      onSave={onBack}
+      onCancel={onBack}
+      onTabChange={onTabChange}
+      currentTab={currentTab}
+    />
+  );
+};
+
+// 物品详情页面包装器
+const ItemDetailPageWrapper: React.FC<{
+  onBack: () => void;
+  onEdit: (itemId: string) => void;
+  onDelete: () => void;
+  onTabChange: (event: React.SyntheticEvent, value: number) => void;
+  currentTab: number;
+}> = ({ onBack, onEdit, onDelete, onTabChange, currentTab }) => {
+  const { id } = useParams<{ id: string }>();
+  
+  if (!id) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        物品不存在
+      </Box>
+    );
+  }
+  
+  return (
+    <ItemDetailPage
+      itemId={id}
+      onBack={onBack}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onTabChange={onTabChange}
+      currentTab={currentTab}
+    />
+  );
+};
+
+// 主页面包装器
+const MainPageWrapper: React.FC<{
+  tab: number;
+  onTabChange: (event: React.SyntheticEvent, value: number) => void;
+  onAddItem: () => void;
+  onItemClick: (itemId: string, suitcaseId?: string) => void;
+  selectedSuitcaseId?: string | null;
+}> = ({ tab, onTabChange, onAddItem, onItemClick, selectedSuitcaseId }) => {
+  const [searchParams] = useSearchParams();
+  const suitcaseId = searchParams.get('suitcaseId') || selectedSuitcaseId;
+
+  if (tab === 0) {
+    return (
+      <HomePage
+        onAddItem={onAddItem}
+        onItemClick={onItemClick}
+        onTabChange={onTabChange}
+        currentTab={tab}
+      />
+    );
+  }
+  
+  if (tab === 1) {
+    return (
+      <SearchPage
+        onItemClick={onItemClick}
+        onTabChange={onTabChange}
+        currentTab={tab}
+      />
+    );
+  }
+  
+  if (tab === 2) {
+    return (
+      <SuitcasePage
+        onItemClick={onItemClick}
+        onTabChange={onTabChange}
+        currentTab={tab}
+        selectedSuitcaseId={suitcaseId}
+      />
+    );
+  }
+  
+  return (
+    <LocationManagementPage
+      onTabChange={onTabChange}
+      currentTab={tab}
+    />
+  );
+};
+
 // 主应用内容
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [currentTab, setCurrentTab] = useState(0);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [previousPage, setPreviousPage] = useState<{page: Page, tab: number}>({ page: 'home', tab: 0 });
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // 从 URL 获取当前 tab
+  const getTabFromPath = () => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      const tabNum = parseInt(tab, 10);
+      if (tabNum >= 0 && tabNum <= 3) {
+        return tabNum;
+      }
+    }
+    return 0;
+  };
+
+  const [currentTab, setCurrentTab] = useState(getTabFromPath());
   const [selectedSuitcaseId, setSelectedSuitcaseId] = useState<string | null>(null);
+
+  // 同步 tab 到 URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const tabNum = tab ? parseInt(tab, 10) : 0;
+    if (tabNum !== currentTab && tabNum >= 0 && tabNum <= 3) {
+      setCurrentTab(tabNum);
+    }
+  }, [searchParams, currentTab]);
 
   // 加载中
   if (loading) {
@@ -52,111 +170,61 @@ const AppContent: React.FC = () => {
   // 切换主页面 tab
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
-
-    let targetPage: Page;
-    switch (newValue) {
-      case 0: targetPage = 'home'; break;
-      case 1: targetPage = 'search'; break;
-      case 2: targetPage = 'suitcase'; break;
-      case 3: targetPage = 'locationManagement'; break;
-      default: targetPage = 'home';
-    }
-
-    setCurrentPage(targetPage);
-    setPreviousPage({ page: targetPage, tab: newValue });
+    // 更新 URL
+    navigate(`/?tab=${newValue}`, { replace: true });
   };
 
-  // 导航到子页面
-  const navigateToDetail = (page: Page, itemId?: string, suitcaseId?: string) => {
-    setPreviousPage({ page: currentPage, tab: currentTab });
-    
-    if (currentPage === 'suitcase' && suitcaseId) {
+  // 添加物品
+  const handleAddItem = () => {
+    navigate(`/add?tab=${currentTab}`);
+  };
+
+  // 编辑物品
+  const handleEditItem = (itemId: string) => {
+    navigate(`/add?id=${itemId}&tab=${currentTab}`);
+  };
+
+  // 查看物品详情
+  const handleItemClick = (itemId: string, suitcaseId?: string) => {
+    if (suitcaseId) {
       setSelectedSuitcaseId(suitcaseId);
     }
-    
-    setCurrentPage(page);
-    if (itemId) {
-      setSelectedItemId(itemId);
-    }
+    navigate(`/item/${itemId}?tab=${currentTab}`);
   };
 
-  // 返回上一页
+  // 返回主页面
   const goBack = () => {
-    setCurrentPage(previousPage.page);
-    setCurrentTab(previousPage.tab);
-    setSelectedItemId(null);
-    setEditingItemId(null);
-  };
-
-  const handleAddItem = () => {
-    setEditingItemId(null);
-    navigateToDetail('addItem');
-  };
-
-  const handleEditItem = (itemId: string) => {
-    setEditingItemId(itemId);
-    navigateToDetail('editItem', itemId);
-  };
-
-  const handleItemClick = (itemId: string, suitcaseId?: string) => {
-    navigateToDetail('itemDetail', itemId, suitcaseId);
+    navigate(`/?tab=${currentTab}`, { replace: true });
   };
 
   return (
     <AppProvider>
       <Routes>
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/add" element={
+          <AddItemPageWrapper
+            onBack={goBack}
+            onTabChange={handleTabChange}
+            currentTab={currentTab}
+          />
+        } />
+        <Route path="/item/:id" element={
+          <ItemDetailPageWrapper
+            onBack={goBack}
+            onEdit={handleEditItem}
+            onDelete={goBack}
+            onTabChange={handleTabChange}
+            currentTab={currentTab}
+          />
+        } />
         <Route path="*" element={
-          <>
-            {currentPage === 'home' && (
-              <HomePage
-                onAddItem={handleAddItem}
-                onItemClick={handleItemClick}
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-              />
-            )}
-            {(currentPage === 'addItem' || currentPage === 'editItem') && (
-              <AddItemPage
-                itemId={editingItemId || undefined}
-                onSave={goBack}
-                onCancel={goBack}
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-              />
-            )}
-            {currentPage === 'itemDetail' && selectedItemId && (
-              <ItemDetailPage
-                itemId={selectedItemId}
-                onBack={goBack}
-                onEdit={handleEditItem}
-                onDelete={goBack}
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-              />
-            )}
-            {currentPage === 'search' && (
-              <SearchPage
-                onItemClick={handleItemClick}
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-              />
-            )}
-            {currentPage === 'suitcase' && (
-              <SuitcasePage
-                onItemClick={handleItemClick}
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-                selectedSuitcaseId={selectedSuitcaseId}
-              />
-            )}
-            {currentPage === 'locationManagement' && (
-              <LocationManagementPage
-                onTabChange={handleTabChange}
-                currentTab={currentTab}
-              />
-            )}
-          </>
+          <MainPageWrapper
+            tab={currentTab}
+            onTabChange={handleTabChange}
+            onAddItem={handleAddItem}
+            onItemClick={handleItemClick}
+            selectedSuitcaseId={selectedSuitcaseId}
+          />
         } />
       </Routes>
     </AppProvider>

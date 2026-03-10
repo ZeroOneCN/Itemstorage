@@ -84,17 +84,30 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
     setTags(tags.filter(t => t !== tag));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       alert('请输入物品名称');
       return;
     }
 
-    if (itemId) {
-      const item = items.find(item => item.id === itemId);
-      if (item) {
-        updateItem({
-          ...item,
+    try {
+      if (itemId) {
+        const item = items.find(item => item.id === itemId);
+        if (item) {
+          await updateItem({
+            ...item,
+            name,
+            description,
+            category,
+            location_id: locationId,
+            suitcase_id: suitcaseId,
+            photos,
+            main_photo: mainPhoto,
+            tags,
+          });
+        }
+      } else {
+        await addItem({
           name,
           description,
           category,
@@ -105,20 +118,12 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({
           tags,
         });
       }
-    } else {
-      addItem({
-        name,
-        description,
-        category,
-        location_id: locationId,
-        suitcase_id: suitcaseId,
-        photos,
-        main_photo: mainPhoto,
-        tags,
-      });
+      
+      onSave();
+    } catch (error) {
+      console.error('保存物品失败:', error);
+      alert('保存失败，请重试');
     }
-
-    onSave();
   };
 
   return (
