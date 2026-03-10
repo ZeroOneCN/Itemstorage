@@ -15,15 +15,19 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Avatar
+  Avatar,
+  Alert,
+  CircularProgress
 } from '@mui/material';
-import { Add, Edit, Delete, Backup, Restore, Assessment, Logout, Person } from '@mui/icons-material';
+import { Add, Edit, Delete, Backup, Restore, Assessment, Logout, Person, Lock } from '@mui/icons-material';
 import { Layout } from '../components/Layout';
 import { TopAppBar } from '../components/Navigation/TopAppBar';
 import { BottomNav } from '../components/Navigation/BottomNav';
 import { LocationTree } from '../components/LocationTree';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { AlertDialog } from '../components/AlertDialog';
 
 interface LocationManagementPageProps {
   onTabChange: (event: React.SyntheticEvent, value: number) => void;
@@ -35,7 +39,7 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
   currentTab
 }) => {
   const { state, addRoom, updateRoom, deleteRoom, addLocation, updateLocation, deleteLocation, dispatch } = useAppContext();
-  const { user, signOut } = useAuth();
+  const { user, signOut, updatePassword } = useAuth();
   const { rooms, locations, items, suitcases } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +52,31 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
   const [locationName, setLocationName] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+
+  // 修改密码
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
+  // 确认弹窗状态
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmColor?: 'primary' | 'error' | 'warning' | 'success';
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
+
+  // 提示弹窗状态
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({ open: false, title: '', message: '', type: 'info' });
 
   // 统计信息
   const stats = {
@@ -62,9 +91,58 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
   };
 
   // 退出登录
-  const handleSignOut = async () => {
-    if (window.confirm('确定要退出登录吗？')) {
-      await signOut();
+  const handleSignOut = () => {
+    setConfirmDialog({
+      open: true,
+      title: '退出登录',
+      message: '确定要退出登录吗？',
+      confirmColor: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        await signOut();
+      }
+    });
+  };
+
+  // 修改密码
+  const handleUpdatePassword = async () => {
+    setPasswordError(null);
+    setPasswordMessage(null);
+
+    if (!newPassword.trim()) {
+      setPasswordError('请输入新密码');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('密码至少需要6个字符');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('两次输入的密码不一致');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const { error } = await updatePassword(newPassword);
+      if (error) {
+        setPasswordError(error.message);
+      } else {
+        setPasswordMessage('密码修改成功！');
+        setTimeout(() => {
+          setPasswordDialogOpen(false);
+          setNewPassword('');
+          setConfirmPassword('');
+          setPasswordMessage(null);
+        }, 2000);
+      }
+    } catch {
+      setPasswordError('修改失败，请稍后重试');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -99,22 +177,41 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
         const data = JSON.parse(e.target?.result as string);
 
         if (!data.items || !data.rooms) {
-          alert('备份文件格式不正确');
+          setAlertDialog({
+            open: true,
+            title: '错误',
+            message: '备份文件格式不正确',
+            type: 'error'
+          });
           return;
         }
 
-        if (!window.confirm(`确定要恢复数据吗？这将覆盖当前所有数据。\n\n备份时间：${new Date(data.exportedAt).toLocaleString()}\n物品数量：${data.items.length}`)) {
-          return;
-        }
-
-        dispatch({ type: 'SET_ITEMS', payload: data.items || [] });
-        dispatch({ type: 'SET_ROOMS', payload: data.rooms || [] });
-        dispatch({ type: 'SET_LOCATIONS', payload: data.locations || [] });
-        dispatch({ type: 'SET_SUITCASES', payload: data.suitcases || [] });
-
-        alert('数据恢复成功！');
+        setConfirmDialog({
+          open: true,
+          title: '恢复数据',
+          message: `确定要恢复数据吗？这将覆盖当前所有数据。\n\n备份时间：${new Date(data.exportedAt).toLocaleString()}\n物品数量：${data.items.length}`,
+          confirmColor: 'warning',
+          onConfirm: () => {
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+            dispatch({ type: 'SET_ITEMS', payload: data.items || [] });
+            dispatch({ type: 'SET_ROOMS', payload: data.rooms || [] });
+            dispatch({ type: 'SET_LOCATIONS', payload: data.locations || [] });
+            dispatch({ type: 'SET_SUITCASES', payload: data.suitcases || [] });
+            setAlertDialog({
+              open: true,
+              title: '成功',
+              message: '数据恢复成功！',
+              type: 'success'
+            });
+          }
+        });
       } catch {
-        alert('文件解析失败，请确保是有效的备份文件');
+        setAlertDialog({
+          open: true,
+          title: '错误',
+          message: '文件解析失败，请确保是有效的备份文件',
+          type: 'error'
+        });
       }
     };
     reader.readAsText(file);
@@ -202,15 +299,29 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
   };
 
   const handleDeleteRoom = (roomId: string) => {
-    if (window.confirm('确定要删除这个房间吗？删除后房间内的位置和物品会失去关联。')) {
-      deleteRoom(roomId);
-    }
+    setConfirmDialog({
+      open: true,
+      title: '删除房间',
+      message: '确定要删除这个房间吗？\n\n删除后房间内的位置和物品会失去关联。',
+      confirmColor: 'error',
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        deleteRoom(roomId);
+      }
+    });
   };
 
   const handleDeleteLocation = (locationId: string) => {
-    if (window.confirm('确定要删除这个位置吗？删除后位置内的物品会失去关联。')) {
-      deleteLocation(locationId);
-    }
+    setConfirmDialog({
+      open: true,
+      title: '删除位置',
+      message: '确定要删除这个位置吗？\n\n删除后位置内的物品会失去关联。',
+      confirmColor: 'error',
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        deleteLocation(locationId);
+      }
+    });
   };
 
   // 获取用户邮箱首字母
@@ -247,21 +358,36 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
               </Typography>
             </Box>
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<Logout />}
-            onClick={handleSignOut}
-            fullWidth
-            sx={{
-              mt: 2,
-              borderColor: '#8B7355',
-              color: '#8B7355',
-              borderRadius: 2,
-              '&:hover': { borderColor: '#6B5335', backgroundColor: 'rgba(139, 115, 85, 0.1)' }
-            }}
-          >
-            退出登录
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Lock />}
+              onClick={() => setPasswordDialogOpen(true)}
+              sx={{
+                flex: 1,
+                borderColor: '#4A6741',
+                color: '#4A6741',
+                borderRadius: 2,
+                '&:hover': { borderColor: '#3A5235', backgroundColor: 'rgba(74, 103, 65, 0.1)' }
+              }}
+            >
+              修改密码
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Logout />}
+              onClick={handleSignOut}
+              sx={{
+                flex: 1,
+                borderColor: '#8B7355',
+                color: '#8B7355',
+                borderRadius: 2,
+                '&:hover': { borderColor: '#6B5335', backgroundColor: 'rgba(139, 115, 85, 0.1)' }
+              }}
+            >
+              退出登录
+            </Button>
+          </Box>
         </Paper>
 
         {/* 统计信息 */}
@@ -565,6 +691,96 @@ export const LocationManagementPage: React.FC<LocationManagementPageProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 修改密码对话框 */}
+      <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: '#8B7355', fontWeight: 'bold' }}>
+          修改密码
+        </DialogTitle>
+        <DialogContent>
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+          {passwordMessage && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {passwordMessage}
+            </Alert>
+          )}
+          <TextField
+            label="新密码"
+            type="password"
+            fullWidth
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: '#E0D6C2' },
+                '&:hover fieldset': { borderColor: '#8B7355' },
+                '&.Mui-focused fieldset': { borderColor: '#4A6741' }
+              }
+            }}
+          />
+          <TextField
+            label="确认新密码"
+            type="password"
+            fullWidth
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: '#E0D6C2' },
+                '&:hover fieldset': { borderColor: '#8B7355' },
+                '&.Mui-focused fieldset': { borderColor: '#4A6741' }
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => {
+            setPasswordDialogOpen(false);
+            setNewPassword('');
+            setConfirmPassword('');
+            setPasswordError(null);
+            setPasswordMessage(null);
+          }} sx={{ color: '#8B7355' }}>
+            取消
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUpdatePassword}
+            disabled={passwordLoading}
+            sx={{
+              backgroundColor: '#4A6741',
+              '&:hover': { backgroundColor: '#3A5235' },
+              borderRadius: 2
+            }}
+          >
+            {passwordLoading ? <CircularProgress size={24} color="inherit" /> : '确认修改'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 确认弹窗 */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmColor={confirmDialog.confirmColor}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+
+      {/* 提示弹窗 */}
+      <AlertDialog
+        open={alertDialog.open}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+        onClose={() => setAlertDialog(prev => ({ ...prev, open: false }))}
+      />
 
       <BottomNav value={currentTab} onChange={onTabChange} />
     </Layout>

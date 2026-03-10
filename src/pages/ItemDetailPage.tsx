@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -13,6 +13,7 @@ import { TopAppBar } from '../components/Navigation/TopAppBar';
 import { BottomNav } from '../components/Navigation/BottomNav';
 import { useAppContext } from '../context/AppContext';
 import { IconButton } from '@mui/material';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 
 interface ItemDetailPageProps {
@@ -34,6 +35,8 @@ export const ItemDetailPage: React.FC<ItemDetailPageProps> = ({
 }) => {
   const { state, deleteItem } = useAppContext();
   const { items, locations, rooms, suitcases } = state;
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   const item = items.find(item => item.id === itemId);
 
@@ -58,10 +61,15 @@ export const ItemDetailPage: React.FC<ItemDetailPageProps> = ({
   };
 
   const handleDelete = () => {
-    if (window.confirm('确定要删除这个物品吗？此操作不可撤销。')) {
-      deleteItem(item!.id);
-      onDelete(item!.id);
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (item) {
+      deleteItem(item.id);
+      onDelete(item.id);
     }
+    setConfirmDialogOpen(false);
   };
 
   if (!item) {
@@ -258,6 +266,17 @@ export const ItemDetailPage: React.FC<ItemDetailPageProps> = ({
       </Box>
 
       <BottomNav value={currentTab} onChange={onTabChange} />
+
+      {/* 删除确认弹窗 */}
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        title="删除物品"
+        message="确定要删除这个物品吗？\n\n此操作不可撤销。"
+        confirmColor="error"
+        confirmText="删除"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDialogOpen(false)}
+      />
     </Layout>
   );
 };

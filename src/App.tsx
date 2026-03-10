@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { LoginPage } from './pages/LoginPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { HomePage } from './pages/HomePage';
 import { AddItemPage } from './pages/AddItemPage';
 import { ItemDetailPage } from './pages/ItemDetailPage';
@@ -11,6 +13,12 @@ import { LocationManagementPage } from './pages/LocationManagementPage';
 import { CircularProgress, Box } from '@mui/material';
 
 type Page = 'home' | 'addItem' | 'editItem' | 'itemDetail' | 'search' | 'suitcase' | 'locationManagement';
+
+// 登录页面包装器
+const LoginPageWrapper: React.FC = () => {
+  const navigate = useNavigate();
+  return <LoginPage onSuccess={() => navigate('/')} />;
+};
 
 // 主应用内容
 const AppContent: React.FC = () => {
@@ -33,7 +41,12 @@ const AppContent: React.FC = () => {
 
   // 未登录显示登录页
   if (!user) {
-    return <LoginPage onSuccess={() => {}} />;
+    return (
+      <Routes>
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={<LoginPageWrapper />} />
+      </Routes>
+    );
   }
 
   // 切换主页面 tab
@@ -91,63 +104,72 @@ const AppContent: React.FC = () => {
 
   return (
     <AppProvider>
-      {currentPage === 'home' && (
-        <HomePage
-          onAddItem={handleAddItem}
-          onItemClick={handleItemClick}
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-        />
-      )}
-      {(currentPage === 'addItem' || currentPage === 'editItem') && (
-        <AddItemPage
-          itemId={editingItemId || undefined}
-          onSave={goBack}
-          onCancel={goBack}
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-        />
-      )}
-      {currentPage === 'itemDetail' && selectedItemId && (
-        <ItemDetailPage
-          itemId={selectedItemId}
-          onBack={goBack}
-          onEdit={handleEditItem}
-          onDelete={goBack}
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-        />
-      )}
-      {currentPage === 'search' && (
-        <SearchPage
-          onItemClick={handleItemClick}
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-        />
-      )}
-      {currentPage === 'suitcase' && (
-        <SuitcasePage
-          onItemClick={handleItemClick}
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-          selectedSuitcaseId={selectedSuitcaseId}
-        />
-      )}
-      {currentPage === 'locationManagement' && (
-        <LocationManagementPage
-          onTabChange={handleTabChange}
-          currentTab={currentTab}
-        />
-      )}
+      <Routes>
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={
+          <>
+            {currentPage === 'home' && (
+              <HomePage
+                onAddItem={handleAddItem}
+                onItemClick={handleItemClick}
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+              />
+            )}
+            {(currentPage === 'addItem' || currentPage === 'editItem') && (
+              <AddItemPage
+                itemId={editingItemId || undefined}
+                onSave={goBack}
+                onCancel={goBack}
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+              />
+            )}
+            {currentPage === 'itemDetail' && selectedItemId && (
+              <ItemDetailPage
+                itemId={selectedItemId}
+                onBack={goBack}
+                onEdit={handleEditItem}
+                onDelete={goBack}
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+              />
+            )}
+            {currentPage === 'search' && (
+              <SearchPage
+                onItemClick={handleItemClick}
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+              />
+            )}
+            {currentPage === 'suitcase' && (
+              <SuitcasePage
+                onItemClick={handleItemClick}
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+                selectedSuitcaseId={selectedSuitcaseId}
+              />
+            )}
+            {currentPage === 'locationManagement' && (
+              <LocationManagementPage
+                onTabChange={handleTabChange}
+                currentTab={currentTab}
+              />
+            )}
+          </>
+        } />
+      </Routes>
     </AppProvider>
   );
 };
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
