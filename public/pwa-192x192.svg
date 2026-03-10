@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5F0E8"/>
+      <stop offset="100%" style="stop-color:#E8E0D0"/>
+    </linearGradient>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A6741"/>
+      <stop offset="100%" style="stop-color:#3A5235"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="192" height="192" rx="38" fill="url(#bgGrad)"/>
+  
+  <!-- 收纳箱主体 -->
+  <rect x="36" y="60" width="120" height="90" rx="8" fill="url(#boxGrad)"/>
+  
+  <!-- 收纳箱盖子 -->
+  <path d="M28 60 L96 30 L164 60 L96 68 Z" fill="#5A7751"/>
+  
+  <!-- 收纳箱横条装饰 -->
+  <rect x="36" y="98" width="120" height="3" rx="1.5" fill="#2A4225" opacity="0.3"/>
+  <rect x="36" y="120" width="120" height="3" rx="1.5" fill="#2A4225" opacity="0.3"/>
+  
+  <!-- 收纳箱把手 -->
+  <rect x="82" y="135" width="28" height="6" rx="3" fill="#8B7355"/>
+  
+  <!-- 装饰圆点 -->
+  <circle cx="52" cy="82" r="5" fill="#8B7355" opacity="0.8"/>
+  <circle cx="140" cy="82" r="5" fill="#8B7355" opacity="0.8"/>
+</svg>
